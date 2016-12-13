@@ -1,0 +1,440 @@
+---
+title: '615- Twitter Data Mining: Human Rights Day'
+author: "Jingrong Cheng"
+date: "December 10, 2016"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)  
+library(grid)
+library(devtools)
+library(twitteR)
+library(streamR)
+library(ROAuth)
+library(plyr)
+library(ggmap)
+library(SnowballC)
+library(tm)
+library(wordcloud)
+library(readr)
+library(RColorBrewer)
+library(shiny)
+library(devtools)
+```
+
+
+
+```{r, include=FALSE}
+#read data
+Final_HRD_1210 <- read_csv("C:/Users/Jingrong/Desktop/MSSP/615/Homework/final/twitter final/Final_HRD_1210.csv")
+```
+
+#Introduction
+Human Rights Day is on December 10th, every year, celebrated by the whole world. In 1948, the United Nations General Assembly adopted the Universal Declaration of Human Rights. In 1950, the Assembly passed resolution 423 (V), inviting all States and interested organizations to observe 10 December of each year as Human Rights Day. (12,12, http://www.un.org/en/events/humanrightsday/)
+This year is 68th anniversary of Human Rights Day and the theme of it is "Stand up for someone's rights today!." The United Nations officially created 2 hashtags -#Standup4HumanRights and #HumanRightsDay. Therefore, it is expectable to see there are many high frequency keywords that are parts of these hashtags on my Twitter searching.
+The time that I set up for Twitter searching is 10 minutes, and there were more than 12 hundred tweets return back to R. 2271 entries were selected by keyword "HumanRightsDay." Total 1263 Ids are involved in this selection. 1000 tweets with different text are chosen by my Twitter searching. After cleaned the data, it is ready to do some exploration and analysis.
+
+
+```{r, include=FALSE}
+#Try some data cleaning tools that are introduced online to clean the text
+myCorpus <- Corpus(VectorSource(Final_HRD_1210$text))
+# Organize the letters in text: convert to lower case
+myCorpus <- tm_map(myCorpus, content_transformer(tolower))
+# remove URLs
+removeURL <- function(x) gsub("http[^[:space:]]*", "", x)
+myCorpus <- tm_map(myCorpus, content_transformer(removeURL))
+# Only focus on English
+removeNumPunct <- function(x) gsub("[^[:alpha:][:space:]]*", "", x)
+myCorpus <- tm_map(myCorpus, content_transformer(removeNumPunct))
+# remove extra whitespace
+myCorpus <- tm_map(myCorpus, stripWhitespace)
+```
+
+##Word Cloud
+
+
+####Figure 1
+
+```{r, echo=FALSE}
+# create a word cloud
+tdm = TermDocumentMatrix(
+  myCorpus,
+  control = list(
+    removePunctuation = TRUE,
+    removeNumbers = TRUE, tolower = TRUE)
+    )
+
+yun = as.matrix(tdm)
+# get word counts in decreasing order
+word_freqs = sort(rowSums(yun), decreasing = TRUE) 
+# create a data frame with words and their frequencies
+dm = data.frame(word = names(word_freqs), freq = word_freqs)
+dm$index<-c(1:4457)
+dm <- dm[-c(79,129,182,236,282,388), ]
+dm$word <- as.character(dm$word)
+#Since "humanrightsday" is too large to fit in the plot, and I don't how to fit it in to wordcloud with original words. Therefore, I decide to replace it with "HMRsD." Hope I can learn how to create this plot without  changing the context.
+dm$word[dm$word == "humanrightsday"] <- "HMRsD"
+dm$word[dm$word == "international"]<- "itntnal"
+wordcloud(dm$word[1:180], dm$freq[1:180], random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+
+
+
+Figure 1 is a word cloud. All the captured terms, which is total 4451, are placed in decreasing order, and only top 180 are chose into the cloud. There was a problem that I met during this process. The most frequent word is "HumanRightsDay" with 2137 frequency, which is exactly what I expected. However, when I created plot, "humanrightsday" is too large to fit in the plot, and I tried several methods to fit the original word into figure, but I couldn't. Therefore, I decided to replace it with "HMRsD." This is a problem that I should inquiry with Professor Haviland, and to learn how to create this figure without changing the context.
+
+
+
+
+
+
+####Figure 2
+
+```{r,echo=FALSE}
+pal2 <- brewer.pal(8,"Dark2")
+
+wordcloud(dm$word[1:400],dm$freq[1:400], scale=c(4,.1),min.freq=3,max.words=Inf, random.order=FALSE, rot.per=.15, colors=pal2)
+```
+
+
+Figure 2 is another word cloud. This time I chose the top 400 frequent terms into the cloud. As we could see, "HumanRightsDay" is the most heated term in my Twitter searching, and it has extremely different attention than any other words, according to the size of it in the word cloud
+
+
+
+
+##Frequency Bar plot
+
+```{r}
+
+
+
+
+
+
+
+
+
+```
+
+
+####Figure 3
+
+```{r,echo=FALSE, warning=FALSE,comment=NA,message=FALSE}
+#create a plot for word frequency
+dm35<-dm[1:35,]
+ggplot(dm35, aes(x = word, y = freq,fill="pink")) + geom_bar(stat = "identity") +
+xlab("Terms") + ylab("Count") + coord_flip()
+```
+
+
+
+Figure 3 is the frequency bar plot. Top 35 frequent terms are selected to create the barplots. HMRsD stands for "HumanRightsDay", which is the most frequent word in my Twitter searching. "The" is the second frequent word, and "rights" is third as well as "human" is the fourth. It is reasonable to see those words having high frequency since those are campaign related keywords.
+
+
+
+
+
+##Mapping Plot
+
+####Figure 4
+```{r, warning=FALSE,echo=FALSE,message=FALSE}
+points  <-  data.frame(x = as.numeric(Final_HRD_1210$lon), 
+                       y = as.numeric(Final_HRD_1210$lat))
+
+map.data  <-  map_data("world")
+ggplot(map.data) + 
+  geom_map(aes(map_id = region), 
+           map = map.data, 
+           fill = "gray80",
+           color = "gray80", size = 1) + 
+  expand_limits(x = map.data$long, y = map.data$lat) +       
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),           
+        axis.title = element_blank(), 
+        panel.background = element_blank(), 
+        panel.border = element_blank(),           
+        panel.grid.major = element_blank(), 
+        plot.background = element_blank(),           
+        plot.margin = unit(0 * c( 1.5,  1.5,  1.5,  1.5), "lines")) + 
+        geom_point(data = points,       
+        aes(x = x, y = y), size = 1, 
+        alpha = 1/5, color = "navy",pch=19)
+```
+
+
+Since I searched tweets around the world within 10 minutes, I am able to create a world mapping plot for the tweets that have been tweeted at that period of time. In the figure, all the location points are presented in color navy. As we can see, tweets are distributed mostly at United States and Europe, and some of them distributed in Africa. It is interesting to see that there is no twitter posted in China, since Twitter and Facebook are not able to access in China. Increasing debates and topics about human right are appearing around the United States and Europe recently due to various reasons. I hope see more and more people to care this topic in the future.
+
+
+
+
+
+
+
+
+####Figure 5
+```{r,echo=FALSE}
+map.data  <-  map_data("world")
+withoutna<-Final_HRD_1210[complete.cases(Final_HRD_1210[,32]),]
+points  <-  data.frame(x = as.numeric(withoutna$lon), 
+                       y = as.numeric(withoutna$lat))
+ggplot(map.data) + 
+  geom_map(aes(map_id = region), 
+           map = map.data, 
+           fill = "white",       
+           color = "grey20", size = 0.25) + 
+  expand_limits(x = map.data$long, y = map.data$lat) +       
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),           
+        axis.title = element_blank(), 
+        panel.background = element_blank(), 
+        panel.border = element_blank(),           
+        panel.grid.major = element_blank(), 
+        plot.background = element_blank(),           
+        plot.margin = unit(0 * c( 1.5,  1.5,  1.5,  1.5), "lines")) + 
+        geom_point(data = points,       
+        aes(x = x, y = y), size = 1, 
+        alpha = 1/5, color = "red")
+```
+
+Figure 5. There is another presentation for world mapping plot. All the locations are pointed in red color. From the clear country border, it is clear to see the location of most of the twitters posted from United States and Europe on the internet.
+
+
+
+
+
+
+
+
+####Figure 6
+```{r,echo=FALSE}
+# focus on USA
+usadata<-subset(withoutna, lat>=20 & lat<= 50 & lon >= -130 & lon <= -64)
+map.data  <-  map_data("state")  
+points  <-  data.frame(x = as.numeric(usadata$lon), 
+                       y = as.numeric(usadata$lat))
+
+ggplot(map.data) + 
+  geom_map(aes(map_id = region), 
+           map = map.data, 
+           fill = "white",       
+           color = "grey20", size = 0.25) + 
+  expand_limits(x = map.data$long, y = map.data$lat) +       
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),           
+        axis.title = element_blank(), 
+        panel.background = element_blank(), 
+        panel.border = element_blank(),           
+        panel.grid.major = element_blank(), 
+        plot.background = element_blank(),           
+        plot.margin = unit(0 * c( 1.5,  1.5,  1.5,  1.5), "lines")) + 
+        geom_point(data = points,       
+        aes(x = x, y = y), size = 2, 
+        alpha = 1/5, color = "red") 
+
+```
+
+Figure 6 presents the twitter location in United States, since US is one of the area that has most of the points. We could tell from the figure that users from east and west coast are more active about Human Rights Day.
+
+
+
+
+
+##Simply Statistic Analysis
+
+Tweets with top 4 total retweets are selected to do the following analysis. Retweet proportion for each ID and connection between followers and number of retweets will be analyzed for each of the selected twitter.
+
+
+
+
+###No.1 
+
+number of retweets: 27911
+
+Twitter text: RT @JamesMelville: Humans should help other humans. Where they come from is irrelevant. #RefugeesWelcome #HumanRightsDay https://t.co/dqbr0<U+0085>
+
+####Figure 7
+```{r,echo=FALSE}
+#how many different ID
+eng<- subset(Final_HRD_1210, lang == "en")
+id<-eng[,c(1:2,5,21,22)]
+id$id_str<-as.character(id$id_str)
+id$retweet_count<-as.numeric(id$retweet_count)
+#retweets are larger than 1300
+retweets1000<- subset(id, retweet_count >1000)
+# what is the text that has been retweeted the most
+a<-unique(retweets1000$text)
+a1<-id[grep("RT @JamesMelville: Humans should help other humans. Where they come from is irrelevant.", id$text), ]
+na1<-sum(a1$retweet_count)
+#27911
+#different IDs for the same tweet
+re_t1<-data.frame(retweet= a1$retweet_count,total=rep(27911,12),index=c(1:12),followers=a1$followers_count,favo=a1$favourites_count)
+#want to plot the proportion for each retweet
+ggplot(re_t1) +geom_point(aes(x=index, y=retweet/total),size=1)+
+  geom_smooth(aes(x=index, y=retweet/total,colour="darkpink"),span = 1,se = FALSE)+
+  ggtitle("Retweet Proportion for each ID")+xlab("12 different ID") +ylab("Retweets for Each IDNumber/Total retweets")
+
+```
+
+
+
+For this twitter, 12 different users are captured by my search. The plot shows the retweet proportion for each user, which presents how the retweet number for each user contributes to the whole publicity for this twitter. From the figure, each of the user retweets about the same amount as each other. There is no super large or small amount of retweets among these users, which is interesting. Each of them retweets around 8.3% of the total retweets number.
+
+
+
+
+
+
+
+####Figure 8
+```{r echo=FALSE}
+#retweet number and number of followers
+cols <- c("Retweets"="#CC79A7","Followers"="#0072B2")
+ggplot(re_t1) +geom_line(aes(x=index, y=followers,colour="Followers"),size=1.1)+
+  geom_point(aes(x=index,y=followers, colour="Followers"))+
+  geom_line(aes(x=index, y=retweet, color="Retweets"))+
+  ggtitle("Followers vs. Retweets")+xlab("12 Different ID") +ylab("Number of Reweets and Number of Followers")+scale_colour_manual(name="Number",values=cols)
+```
+
+
+In this figure, line in pink color represents the number of retweets of each user for this twitter, and the blue line demonstrate the number of followers that each user has at the data mining time period. 
+
+
+
+###No.2 
+
+number of retweets: 25287
+
+Twitter text: RT @WHO: Today is #HumanRightsDay. The highest attainable standard of health is a fundamental right of every human being<U+0085>
+
+
+
+####Figure 9
+
+```{r, echo=FALSE}
+a4<-id[grep("RT @WHO: Today is #HumanRightsDay.", id$text), ]
+na4<-sum(a4$retweet_count)
+#25287
+re_t4<-data.frame(retweet= a4$retweet_count,total=rep(25287,19),index=c(1:19),followers=a4$followers_count,favo=a4$favourites_count)
+#want to plot the proportion for each retweet
+ggplot(re_t4) +geom_point(aes(x=index, y=retweet/total),size=1)+
+  geom_smooth(aes(x=index, y=retweet/total,colour="darkpink"),span = 2,se = FALSE)+
+  ggtitle("Retweet Proportion for each ID")+xlab("19 different ID") +ylab("Retweets for Each IDNumber/Total retweets")
+```
+
+
+
+Second top twitter has 19 users involved. After no.1 twitter's analysis, it is not surprised to see that the retweet proportion for each user is almost the same to each other. Each user contributes about 5.2% of the total retweets.
+
+
+
+
+
+####Figure 10
+```{r, echo=FALSE}
+#retweet number and number of followers
+cols <- c("Retweets"="#CC79A7","Followers"="#0072B2")
+ggplot(re_t4) +geom_line(aes(x=index, y=followers,colour="Followers"),size=1.1)+
+  geom_line(aes(x=index, y=retweet, color="Retweets"))+
+  geom_point(aes(x=index,y=followers, colour="Followers"))+
+  ggtitle("Followers vs. Retweets")+xlab("19 Different ID") +ylab("Number of Reweets and Number of Followers")+scale_colour_manual(name="Number",values=cols)
+```
+
+In this figure 10, line in pink color represents the number of retweets for each user, and the blue line indicates the number of followers that each user has at the data mining time period. The result didn't show the pattern that I would expect either. The retweets number doesn't correlate with the number of follower.
+
+
+
+
+###No.3 
+number of retweets: 8043
+
+Twitter text: RT @UN_Women: Today is #HumanRightsDay. In 1995, @HillaryClinton delivered this powerful speech. RT if you agree! https://t.co/oRUy3M3fgu
+
+
+####Figure 11
+```{r,echo=FALSE}
+a2<-id[grep("RT @UN_Women: Today is #HumanRightsDay. In 1995, @HillaryClinton delivered this powerful speech. RT if you agree!", id$text), ]
+na2<-sum(a2$retweet_count)
+#8043
+#different IDs for the same tweet
+re_t2<-data.frame(retweet= a2$retweet_count,total=rep(8043,7),index=c(1:7),followers=a2$followers_count,favo=a2$favourites_count)
+#want to plot the proportion for each retweet
+ggplot(re_t2) +geom_point(aes(x=index, y=retweet/total),size=1)+
+  geom_smooth(aes(x=index, y=retweet/total,colour="darkpink"),span = 1,se = FALSE)+
+  ggtitle("Retweet Proportion for each ID")+xlab("7 different ID") +ylab("Retweets for Each IDNumber/Total retweets")
+
+```
+
+
+
+Third top twitter was distributed by 7 users at the time of Twitter searching. The retweet proportion for each ID is about the same. Each user contributes about 14.3% of the total retweets.  
+
+
+
+
+
+
+
+####Figure 12
+```{r, warning=FALSE,echo=FALSE}
+#retweet number and number of followers
+cols <- c("Retweets"="#CC79A7","Followers"="#0072B2")
+ggplot(re_t2) +geom_line(aes(x=index, y=followers,colour="Followers"),size=1.1)+
+  geom_line(aes(x=index, y=retweet, color="Retweets"))+geom_point(aes(x=index,y=followers, colour="Followers"))+
+  ggtitle("Followers vs. Retweets")+xlab("7 Different ID") +ylab("Number of Reweets and Number of Followers")+scale_colour_manual(name="Number",values=cols)
+```
+
+In this figure 12, line in pink color represents the number of retweets for each user, and the blue line indicates the number of followers that each user has at the data mining time period. The retweets number for each user doesn't correlate to number of followers for each user, which is not what I expected. I may need further analysis on this particular part of research. 
+
+
+
+
+
+###No.4 
+
+number of retweets: 4273
+
+Twitter text: RT @UNHumanRights: Dec 10 is #HumanRightsDay. Let's #StandUp4HumanRights - for greater freedoms, stronger respect &amp; more compassion https:/<U+0085>
+
+####Figure 13
+```{r, warning=FALSE,echo=FALSE}
+a3<-id[grep("RT @UNHumanRights: Dec 10 is #HumanRightsDay. Let's #StandUp4HumanRights - for greater freedoms, stronger respect", id$text), ]
+na3<-sum(a3$retweet_count)
+#4273
+#different IDs for the same tweet
+re_t3<-data.frame(retweet= a3$retweet_count,total=rep(4273,3),index=c(1:3),followers=a3$followers_count,favo=a3$favourites_count)
+#want to plot the proportion for each retweet
+ggplot(re_t3) +geom_point(aes(x=index, y=retweet/total),size=1)+
+  geom_smooth(aes(x=index, y=retweet/total,colour="darkpink"),span = 10,se = FALSE)+
+  ggtitle("Retweet Proportion for each ID")+xlab("3 different ID") +ylab("Retweets for Each IDNumber/Total retweets")
+```
+
+
+Fourth top twitter was distributed by 3 users at the time of Twitter searching. The retweet proportion for each ID is about the same. Retweets for Each user's twitter contributes about 33.3% of the total retweets.  
+
+
+
+
+
+
+####Figure 14
+```{r, warning=FALSE,echo=FALSE}
+#retweet number and number of followers
+cols <- c("Retweets"="#CC79A7","Followers"="#0072B2")
+ggplot(re_t3) +geom_line(aes(x=index, y=followers,colour="Followers"),size=1.1)+
+  geom_line(aes(x=index, y=retweet, color="Retweets"))+
+  geom_point(aes(x=index,y=followers, colour="Followers"))+
+  ggtitle("Followers vs. Retweets")+xlab("3 Different ID") +ylab("Number of Reweets and Number of Followers")+scale_colour_manual(name="Number",values=cols)
+```
+
+In this figure 14, line in pink color represents the number of retweets for each user, and the blue line indicates the number of followers that each user has at the data mining time period. The retweets number for each user doesn't correlate to number of followers for each user, which is not what I expected. 
+
+
+#Conclusion:
+
+Twitter data mining is a great experience that letting us connect with the real social world by R programming language. In this report, there are certain results that don't reflect to my expectation, which is an interesting point that would lead me to do more exploration in social media environment. Assumptions may not be proved by the research. Also, learning how to use Shiny to create report and present figures properly is one of my next directions. I plan to polish this report during winter break.
